@@ -1,0 +1,96 @@
+#!/usr/bin/env ruby
+# -*- encoding: UTF-8 -*-
+
+
+# DOCKER='docker run --rm --device /dev/dri:/dev/dri'
+
+# AUDIO_CODEC=" -acodec copy -absf aac_adtstoasc"
+AUDIO_CODEC=" -acodec libfdk_aac -aq 110"
+AUDIO_CODEC_EX='-bsf:a aac_adtstoasc -acodec copy'
+AUDIO_CODEC_NHK=" -acodec libfaac -ar 48000 -ab 192k"
+NHK = [
+ 1024, 1025,
+ 1032, 1034,
+ 101,
+]
+
+acodec = AUDIO_CODEC
+file = File::expand_path( ARGV[0] )
+out  = ARGV[1]
+exit 1 unless File.exist?(file)
+dirname = File.dirname(file)
+filename = File.basename(file)
+# mnt = "-v #{dirname}:/mnt"
+run = "ffmpeg"
+
+audio = []
+video = []
+sizeopt = "scale_vaapi=w=1280:h=720"
+opt="-aspect 16:9"
+program = nil
+
+print "\nParse stream condition\n"
+print "\n=======================================================\n\n"
+IO::popen("ffmpeg -i '#{file}' 2>&1") do |io|
+ while line = io.gets
+   print line
+   begin
+     if /Program (\d+)/ =~ line and program.to_i == 0
+       program = $1.to_i
+     end
+     if /Stream #([\d:]+)\[.+?Video/ =~ line
+       video.push($1)
+       if /DAR 4:3/ =~ line
+         sizeopt = "scale_vaapi=w=640:h=480"
+         opt="-aspect 4:3"
+       end
+       if /720x480 \[SAR 32:27 DAR 16:9\]/ =~ line
+         # sizeopt = "720x480 -aspect 16:9 -flags +ilme+ildct -top -1 -x264opts weightp=0"
+         sizeopt = "scale_vaapi=w=720:h=480"
+       end
+       if /1440x1080 \[SAR 4:3 DAR 16:9\]/ =~ line
+         opt="-aspect 16:9"
+       end
+     end
+ 
+     if /Stream #([\d:]+)\[.+?Audio: aac,?.+(([0-9\.]+) channel|5\.1|mono|stereo)/ =~ line
+       audio.push($1) ## if $2 == 'stereo' or $2 == 'mono' or $2.to_i > 0 
+     end
+   rescue
+   end
+ end
+end
+print "\n=======================================================\n"
+
+# acodec = AUDIO_CODEC_NHK if NHK.include?(program)
+cmd = Array.new
+cmd << "#{run} -y" 
+cmd << "-vaapi_device /dev/dri/renderD128"
+cmd << "-hwaccel vaapi -hwaccel_output_format vaapi"
+cmd << "-i \"#{filename}\""
+cmd << "-analyzeduration 30M -probesize 30M"
+cmd << "-map #{video[0]}"
+cmd << "-map #{audio[0]}"
+cmd << acodec
+cmd << "-vf 'format=nv12|vaapi,hwupload,deinterlace_vaapi,#{sizeopt}'"
+cmd << "-threads auto"
+cmd << "-c:v h264_vaapi -profile 100 -level 40 -qp 20 -quality 0"
+cmd << opt unless opt.nil?
+
+cmd << audio[1..-1].map do |a| "-map #{a}" end
+cmd << out
+if audio.size >= 2
+ cmd << acodec * (audio.size - 1)
+end
+
+command = cmd.join(' ')
+puts "\nExecute command: #{command}\n\n"
+
+system(command)
+if $?.exitstatus != 0
+  # fallback Handbrake
+  #puts "Build fallback into HandBrakeCLI"
+  #system("ts2avc.hb '#{ARGV[0]}' '#{ARGV[1]}'")
+  puts "error"
+end
+exit $?.exitstatus

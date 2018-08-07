@@ -1,0 +1,116 @@
+
+node {
+def date = sh(script: "TZ=Asia/Tokyo date -d '@${env.STARTAT}' +'%Y年%m月%d日%H:%M'", returnStdout: true)
+currentBuild.displayName = "#${BUILD_NUMBER} ${env.NAME}"
+currentBuild.description = "[${env.CHANNEL}] ${date} 放送"
+}
+pipeline {
+    agent {
+      label 'recorder'
+    }
+    environment {
+        LANG = 'ja_JP.UTF-8'
+        TZ = 'Asia/Tokyo'
+
+        def dockerImage = docker.build("recorder", "docker")
+        SKICKA_HOME = "/storage/1/jenkins/skicka"
+        UPLOAD_FILENAME = sh (
+          script: "date -d '@${env.STARTAT}' +'/test/%Y/%m/%d/[%Y%m%d][%H%M][${env.CHANNEL}]${env.NAME}.m2ts'",
+          returnStdout: true).trim()
+        UPLOAD_DIRNAME = sh(script: "dirname '${UPLOAD_FILENAME}'", returnStdout: true).trim()
+        DEPLOY_FILENAME = sh (
+          script: "date -d '@${env.STARTAT}' +'[%Y%m%d][${env.CHANNEL}]_%H%M_${env.NAME}.mp4'",
+          returnStdout: true).trim()
+        SOURCE_FILENAME = "${BUILD_NUMBER}.m2ts"
+    }
+    stages {
+        stage('prepare') {
+          steps {
+            sh "rm -rf output *.m2ts *.ts"
+            script {
+              if (QUEUE_HOST) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'recorder',
+                  keyFileVariable: 'identity',
+                  passphraseVariable: 'passphrase',
+                  usernameVariable: 'user')]) {
+                  def remote = [:]
+                  remote.name = QUEUE_HOST
+                  remote.host = remote.name
+                  remote.user = user
+                  remote.allowAnyHosts = true
+                  remote.identityFile = identity
+                  remote.passphrase = passphrase
+                  sshGet remote: remote, from: FILEPATH, into: SOURCE_FILENAME, override: true
+                }
+              } else {
+                sh "cp '${env.FILEPATH}' '${SOURCE_FILENAME}'" 
+              }
+            }
+          }
+        }
+        stage('Build') {
+          steps {
+            parallel (
+              "upload" : {
+                  sh "mkdir -p ${env.SKICKA_HOME}"
+                  script {
+                    def desc = DESCRIPTION
+                    if (EXTENDED) {
+                      desc = DESCRIPTION + "\n\n" + EXTENDED
+                    }
+                    if (!fileExists("${env.SKICKA_HOME}/.skicka.tokencache.json")) {
+                      withCredentials([file(credentialsId:'skicka.tokencache.json', variable: 'filename')]) {
+                        sh "cp ${filename} ${env.SKICKA_HOME}/.skicka.tokencache.json && chmod 0600 ${env.SKICKA_HOME}/.skicka.tokencache.json"
+                      }
+                    }
+
+                    docker.image("recorder").inside("-e HOME=${env.SKICKA_HOME} -e LANG=ja_JP.UTF-8") {
+                      sh "skicka init || true"
+                      sh "skicka mkdir -p '${env.UPLOAD_DIRNAME}'"
+                      sh "skicka upload '${SOURCE_FILENAME}' '${env.UPLOAD_FILENAME}'"
+                      sh "skicka desc '${env.UPLOAD_FILENAME}' '${desc}'"
+                    }
+                  }
+              },
+              "encode" : {
+                sh 'mkdir -p output'
+                script {
+                  docker.image("recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
+                    sh "/usr/local/bin/tsenc '${SOURCE_FILENAME}' 'output/${env.BUILD_NUMBER}.mp4'"
+                    sh "mediainfo output/${BUILD_NUMBER}.mp4 > output/mediainfo.txt"
+                  }
+                 }
+              }
+            )
+          }
+        }
+        stage('Deploy') {
+          steps {
+            script {
+              withCredentials([sshUserPrivateKey(credentialsId: 'deploy-mp4',
+                  keyFileVariable: 'identity',
+                  passphraseVariable: 'passphrase',
+                  usernameVariable: 'user')]) {
+                  def remote = [:]
+                  remote.name = DEPLOY_HOST
+                  remote.host = remote.name
+                  remote.user = user
+                  remote.allowAnyHosts = true
+                  remote.identityFile = identity
+                  remote.passphrase = passphrase
+                  def dst = "${env.DEPLOY_PATH}/${env.DEPLOY_FILENAME}"
+                  sshPut remote: remote, from: "output/${BUILD_NUMBER}.mp4", into: dst, override: true
+                  sshCommand remote: remote, command: DEPLOY_EXEC
+                }
+            }
+          }
+        }
+        stage('Cleanup') {
+          steps {
+            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nDESCRIPTION: ${env.DESCRIPTION}\nEXTENDED: ${env.EXTENDED}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
+            archiveArtifacts artifacts: 'output/*'
+            sh 'rm -rf output *.m2ts *.ts'
+          }
+        }
+    }
+}
