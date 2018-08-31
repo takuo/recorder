@@ -113,4 +113,16 @@ pipeline {
           }
         }
     }
+      post {
+        failure {
+          slackSend channel: '#jenkins',
+            color: 'danger',
+            message: "ビルド失敗 `${currentBuild.fullDisplayName}` ${currentBuild.absoluteUrl}"
+        }
+        success {
+          slackSend channel: '#jenkins',
+            color: 'good',
+            message: "ビルド成功 `${currentBuild.fullDisplayName}` ${currentBuild.absoluteUrl}"
+        }
+      }
 }
