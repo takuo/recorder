@@ -54,7 +54,7 @@ IO::popen("ffmpeg -i '#{file}' 2>&1") do |io|
      end
  
      if /Stream #([\d:]+)\[.+?Audio: aac,?.+(([0-9\.]+) channel|5\.1|mono|stereo)/ =~ line
-       audio.push($1) ## if $2 == 'stereo' or $2 == 'mono' or $2.to_i > 0 
+       audio.push($1) unless $2 == '0 channel' ## if $2 == 'stereo' or $2 == 'mono' or $2.to_i > 0 
      end
    rescue
    end
@@ -89,8 +89,8 @@ puts "\nExecute command: #{command}\n\n"
 system(command)
 if $?.exitstatus != 0
   # fallback Handbrake
-  #puts "Build fallback into HandBrakeCLI"
-  #system("ts2avc.hb '#{ARGV[0]}' '#{ARGV[1]}'")
+  puts "Build fallback into HandBrakeCLI"
+  system("/usr/local/bin/ts2avc.hb '#{ARGV[0]}' '#{ARGV[1]}'")
   puts "error"
 end
 exit $?.exitstatus

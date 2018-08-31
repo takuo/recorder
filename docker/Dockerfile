@@ -94,9 +94,10 @@ MAINTAINER takuo kitame@gmail.com
 
 # COPY --from=build /usr/local /usr/local/
 COPY tsenc /usr/local/bin/
+COPY ts2avc.hb /usr/local/bin/
 RUN \
 	apt-get update -y && \
-	apt-get install -y --no-install-recommends libva-drm2 libva2 i965-va-driver vainfo && \
+	apt-get install -y --no-install-recommends libva-drm2 libva2 i965-va-driver vainfo handbrake-cli && \
         apt-get clean -y && \
 	rm -rf /var/lib/apt/lists/*
 
