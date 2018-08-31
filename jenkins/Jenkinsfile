@@ -57,14 +57,15 @@ pipeline {
                 sh "mkdir -p splitout"
                 sh "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME}"
                 file = sh(script: 'cd splitout; ls -S1 | head -1', returnStdout: true).trim()
-                echo "splitout/${file}"
-                sh "rm ${SOURCE_FILENAME}; ln splitout/${file} ${SOURCE_FILENAME}"
+                echo "use 'splitout/${file}'"
+                sh "rm ${SOURCE_FILENAME}"
+                sh "ln 'splitout/${file}' ${SOURCE_FILENAME}"
                 sh "rm -rf splitout"
               }
             }
           }
         }
-        stage('Build') {
+        stage('skicka ffmpeg') {
           steps {
             parallel (
               "upload" : {
@@ -123,7 +124,7 @@ pipeline {
         }
         stage('Cleanup') {
           steps {
-            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nDESCRIPTION: ${env.DESCRIPTION}\nEXTENDED: ${env.EXTENDED}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
+            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nDESCRIPTION: ${env.DESCRIPTION}\nEXTENDED: ${EXTENDED}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
             archiveArtifacts artifacts: 'output/*'
             sh 'rm -rf output *.m2ts *.ts'
           }
