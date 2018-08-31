@@ -14,6 +14,7 @@ pipeline {
 
         def dockerImage = docker.build("recorder", "docker")
         SKICKA_HOME = "/storage/1/jenkins/skicka"
+        WINE_HOME = "/storage/1/jenkins/wine"
         UPLOAD_FILENAME = sh (
           script: "date -d '@${env.STARTAT}' +'/test/%Y/%m/%d/[%Y%m%d][%H%M][${env.CHANNEL}]${env.NAME}.m2ts'",
           returnStdout: true).trim()
@@ -44,6 +45,21 @@ pipeline {
                 }
               } else {
                 sh "cp '${env.FILEPATH}' '${SOURCE_FILENAME}'" 
+              }
+            }
+          }
+        }
+        stage('TSSplitter') {
+          steps {
+            sh "mkdir -p ${WINE_HOME}"
+            script {
+              docker.image('recorder').inside("-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
+                sh "mkdir -p splitout"
+                sh "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME}"
+                file = sh(script: 'cd splitout; ls -S1 | head -1', returnStdout: true).trim()
+                echo "splitout/${file}"
+                sh "rm ${SOURCE_FILENAME}; ln splitout/${file} ${SOURCE_FILENAME}"
+                sh "rm -rf splitout"
               }
             }
           }

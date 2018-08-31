@@ -76,18 +76,18 @@ RUN cd $GOPATH/src/github.com/google/skicka && go get .
 
 
 ## TsSplitter.exe
-#RUN apt-get update && apt-get install -y wget gnupg software-properties-common
-#RUN wget -nc https://dl.winehq.org/wine-builds/Release.key
-#RUN apt-key add Release.key && rm Release.key
-#RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main'
-#
-#RUN dpkg --add-architecture i386
-#RUN apt-get -yqq update && apt-get install -yq --install-recommends \
-#       wine-stable
-#ENV PATH /opt/wine-stable/bin:$PATH
-#RUN winecfg
-#
-#COPY TsSplitter.exe /usr/local/bin/
+RUN apt-get update && apt-get install -y wget gnupg software-properties-common
+RUN wget -nc https://dl.winehq.org/wine-builds/Release.key
+RUN apt-key add Release.key && rm Release.key
+RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main'
+
+RUN dpkg --add-architecture i386
+RUN apt-get -yqq update && apt-get install -yq --install-recommends \
+       wine-stable
+ENV PATH /opt/wine-stable/bin:$PATH
+RUN winecfg
+
+COPY TsSplitter.exe /usr/local/bin/
 
 # FROM base AS release
 MAINTAINER takuo kitame@gmail.com
