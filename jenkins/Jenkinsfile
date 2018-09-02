@@ -16,7 +16,7 @@ pipeline {
         SKICKA_HOME = "/storage/1/jenkins/skicka"
         WINE_HOME = "/storage/1/jenkins/wine"
         UPLOAD_FILENAME = sh (
-          script: "date -d '@${env.STARTAT}' +'/test/%Y/%m/%d/[%Y%m%d][%H%M][${env.CHANNEL}]${env.NAME}.m2ts'",
+          script: "date -d '@${env.STARTAT}' +'/recorder/%Y/%m/%d/[%Y%m%d][%H%M][${env.CHANNEL}]${env.NAME}.m2ts'",
           returnStdout: true).trim()
         UPLOAD_DIRNAME = sh(script: "dirname '${UPLOAD_FILENAME}'", returnStdout: true).trim()
         DEPLOY_FILENAME = sh (
