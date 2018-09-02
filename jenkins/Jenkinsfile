@@ -1,9 +1,11 @@
 
 node {
-def date = sh(script: "TZ=Asia/Tokyo date -d '@${env.STARTAT}' +'%Y年%m月%d日%H:%M'", returnStdout: true)
-currentBuild.displayName = "#${BUILD_NUMBER} ${env.NAME}"
-currentBuild.description = "[${env.CHANNEL}] ${date} 放送"
+  def date = sh(script: "TZ=Asia/Tokyo date -d '@${env.STARTAT}' +'%Y年%m月%d日%H:%M'", returnStdout: true)
+  currentBuild.displayName = "#${BUILD_NUMBER} ${env.NAME}"
+  currentBuild.description = "[${env.CHANNEL}] ${date} 放送"
+ 
 }
+
 pipeline {
     agent {
       label 'recorder'
@@ -29,6 +31,11 @@ pipeline {
           steps {
             sh "rm -rf output *.m2ts *.ts"
             script {
+              DESC = DESCRIPTION
+              if (EXTENDED) {
+                DESC = DESCRIPTION + "\n\n" + EXTENDED
+              }
+
               if (QUEUE_HOST) {
                 withCredentials([sshUserPrivateKey(credentialsId: 'recorder',
                   keyFileVariable: 'identity',
@@ -65,11 +72,19 @@ pipeline {
             }
           }
         }
-        stage('skicka ffmpeg') {
+        stage('Encoding') {
           steps {
             parallel (
               "upload" : {
                   sh "mkdir -p ${env.SKICKA_HOME}"
+                  sh "cp ${SOURCE_FILENAME} ${SKICKA_HOME}"
+                  build job: "skicka uploader", parameters: [
+                    [$class: 'StringParameterValue', name: 'NAME', value: NAME],
+                    [$class: 'StringParameterValue', name: 'SOURCE_FILE', value: "${SKICKA_HOME}/${SOURCE_FILENAME}"],
+                    [$class: 'StringParameterValue', name: 'DEST_FILE', value: UPLOAD_FILENAME],
+                    [$class: 'StringParameterValue', name: 'DESCRIPTION', value: DESC]
+                  ]
+/*
                   script {
                     def desc = DESCRIPTION
                     if (EXTENDED) {
@@ -88,6 +103,7 @@ pipeline {
                       sh "skicka desc '${env.UPLOAD_FILENAME}' '${desc}'"
                     }
                   }
+*/
               },
               "encode" : {
                 sh 'mkdir -p output'
