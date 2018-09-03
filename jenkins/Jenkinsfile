@@ -78,7 +78,7 @@ pipeline {
               "upload" : {
                   sh "mkdir -p ${env.SKICKA_HOME}"
                   sh "cp ${SOURCE_FILENAME} ${SKICKA_HOME}"
-                  build job: "skicka uploader", parameters: [
+                  build job: "skicka uploader", wait: false, parameters: [
                     [$class: 'StringParameterValue', name: 'NAME', value: NAME],
                     [$class: 'StringParameterValue', name: 'SOURCE_FILE', value: "${SKICKA_HOME}/${SOURCE_FILENAME}"],
                     [$class: 'StringParameterValue', name: 'DEST_FILE', value: UPLOAD_FILENAME],
@@ -108,11 +108,11 @@ pipeline {
               "encode" : {
                 sh 'mkdir -p output'
                 script {
-                  if (KEEP_SOURCE_FILE) {
+                  if (KEEP_SOURCE_FILE == "true") {
                       def filename = KEEP_DIR + "/" + DEPLOY_FILENAME.replaceAll(/.mp4\z/, '.m2ts')
                       sh "cp '${SOURCE_FILENAME}' '${filename}'" 
                   }
-                  if (!SKIP_ENCODE) {
+                  if (SKIP_ENCODE == "false") {
                     docker.image("recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
                       sh "/usr/local/bin/tsenc '${SOURCE_FILENAME}' 'output/${env.BUILD_NUMBER}.mp4'"
                       sh "mediainfo output/${BUILD_NUMBER}.mp4 > output/mediainfo.txt"
@@ -126,7 +126,7 @@ pipeline {
         stage('Deploy') {
           steps {
             script {
-              if (!SKIP_ENCODE) {
+              if (SKIP_ENCODE == "false") {
                 withCredentials([sshUserPrivateKey(credentialsId: 'deploy-mp4',
                   keyFileVariable: 'identity',
                   passphraseVariable: 'passphrase',
