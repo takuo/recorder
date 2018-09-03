@@ -149,7 +149,7 @@ pipeline {
         stage('Cleanup') {
           steps {
             writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nDESCRIPTION: ${env.DESCRIPTION}\nEXTENDED: ${EXTENDED}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
-            archiveArtifacts artifacts: 'output/*'
+            archiveArtifacts artifacts: 'output/*.txt'
             sh 'rm -rf output *.m2ts *.ts'
           }
         }
