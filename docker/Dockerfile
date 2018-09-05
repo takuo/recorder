@@ -97,7 +97,7 @@ COPY tsenc /usr/local/bin/
 COPY ts2avc.hb /usr/local/bin/
 RUN \
 	apt-get update -y && \
-	apt-get install -y --no-install-recommends libva-drm2 libva2 i965-va-driver vainfo handbrake-cli && \
+	apt-get install -y --no-install-recommends libva-drm2 libva2 i965-va-driver vainfo handbrake-cli locales && \
         apt-get clean -y && \
 	rm -rf /var/lib/apt/lists/*
-
+RUN locale-gen ja_JP.UTF-8
