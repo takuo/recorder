@@ -25,7 +25,8 @@ run = "ffmpeg"
 
 audio = []
 video = []
-sizeopt = "scale_vaapi=w=1280:h=720"
+#sizeopt = "scale_vaapi=w=1280:h=720"
+sizeopt = "-s 1280x720"
 opt="-aspect 16:9"
 program = nil
 
@@ -41,12 +42,13 @@ IO::popen("ffmpeg -i '#{file}' 2>&1") do |io|
      if /Stream #([\d:]+)\[.+?Video/ =~ line
        video.push($1)
        if /DAR 4:3/ =~ line
-         sizeopt = "scale_vaapi=w=640:h=480"
+	 sizeopt = "-s 640x480"
+         #sizeopt = "scale_vaapi=w=640:h=480"
          opt="-aspect 4:3"
        end
        if /720x480 \[SAR 32:27 DAR 16:9\]/ =~ line
-         # sizeopt = "720x480 -aspect 16:9 -flags +ilme+ildct -top -1 -x264opts weightp=0"
-         sizeopt = "scale_vaapi=w=720:h=480"
+         sizeopt = "-s 720x480 -aspect 16:9 -flags +ilme+ildct -top -1 -x264opts weightp=0"
+         #sizeopt = "scale_vaapi=w=720:h=480"
        end
        if /1440x1080 \[SAR 4:3 DAR 16:9\]/ =~ line
          opt="-aspect 16:9"
@@ -65,16 +67,19 @@ print "\n=======================================================\n"
 # acodec = AUDIO_CODEC_NHK if NHK.include?(program)
 cmd = Array.new
 cmd << "#{run} -y" 
-cmd << "-vaapi_device /dev/dri/renderD128"
-cmd << "-hwaccel vaapi -hwaccel_output_format vaapi"
+#cmd << "-vaapi_device /dev/dri/renderD128"
+#cmd << "-hwaccel vaapi -hwaccel_output_format vaapi"
 cmd << "-i \"#{filename}\""
 cmd << "-analyzeduration 30M -probesize 30M"
 cmd << "-map #{video[0]}"
 cmd << "-map #{audio[0]}"
-cmd << acodec
-cmd << "-vf 'format=nv12|vaapi,hwupload,deinterlace_vaapi,#{sizeopt}'"
 cmd << "-threads auto"
-cmd << "-c:v h264_vaapi -profile 100 -level 40 -qp 20 -quality 0"
+cmd << acodec
+cmd << "-vcodec libx264"
+cmd << sizeopt
+cmd << "-level 41 -threads auto -8x8dct 1 -coder 1 -qmax 51 -qdiff 8 -qmin 16 -qcomp 0.60 -me_method umh -me_range 32 -trellis 2 -refs 3 -subq 5 -flags +loop -direct-pred 3 -mbtree 0 -weightb 1 -aq-mode 1 -aq-strength 0.5 -g 250 -keyint_min 25 -bf 3 -b_strategy 1"
+#cmd << "-vf 'format=nv12|vaapi,hwupload,deinterlace_vaapi,#{sizeopt}'"
+#cmd << "-c:v h264_vaapi -profile 100 -level 40 -qp 20 -quality 0"
 cmd << opt unless opt.nil?
 
 cmd << audio[1..-1].map do |a| "-map #{a}" end
