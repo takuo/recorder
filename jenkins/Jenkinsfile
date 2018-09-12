@@ -20,11 +20,10 @@ pipeline {
         WINE_HOME = "/storage/1/jenkins/wine"
         UPLOAD_FILENAME = sh (
           script: "date -d '@${env.STARTAT}' +\"/recorder/%Y/%m/%d/[%Y%m%d][%H%M][${env.CHANNEL}]${TITLE}.m2ts\"",
-          returnStdout: true).trim()
-        UPLOAD_DIRNAME = sh(script: "dirname \"${UPLOAD_FILENAME}\"", returnStdout: true).trim()
+          returnStdout: true).trim().replaceAll(/"/, "\\\"")
         DEPLOY_FILENAME = sh (
           script: "date -d \"@${env.STARTAT}\" +\"[%Y%m%d][${env.CHANNEL}]_%H%M_${TITLE}.mp4\"",
-          returnStdout: true).trim()
+          returnStdout: true).trim().replaceAll(/"/, "\\\"")
         SOURCE_FILENAME = "${BUILD_NUMBER}.m2ts"
     }
     stages {
@@ -91,7 +90,7 @@ pipeline {
                 script {
                   if (KEEP_SOURCE_FILE == "true") {
                       def filename = KEEP_DIR + "/" + DEPLOY_FILENAME.replaceAll(/.mp4\z/, '.m2ts')
-                      sh "cp ${SOURCE_FILENAME} \"${filename}\"" 
+                      sh "cp ${SOURCE_FILENAME} \"${filename}\""
                   }
                   if (SKIP_ENCODE == "false") {
                     docker.image("recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
@@ -141,7 +140,7 @@ pipeline {
             color: 'danger',
             message: "ビルド失敗 `${currentBuild.fullDisplayName}` ${currentBuild.absoluteUrl}"
         }
-        success {
+        fixed {
           slackSend channel: '#jenkins',
             color: 'good',
             message: "ビルド成功 `${currentBuild.fullDisplayName}` ${currentBuild.absoluteUrl}"
