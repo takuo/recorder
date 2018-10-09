@@ -3,7 +3,6 @@ node {
   def date = sh(script: "TZ=Asia/Tokyo date -d '@${env.STARTAT}' +'%Y年%m月%d日%H:%M'", returnStdout: true)
   currentBuild.displayName = "#${BUILD_NUMBER} - ${env.NAME}"
   currentBuild.description = "[${env.CHANNEL}] ${date} 放送"
- 
 }
 
 pipeline {
@@ -14,8 +13,6 @@ pipeline {
         LANG = 'ja_JP.UTF-8'
         TZ = 'Asia/Tokyo'
         TITLE = NAME.replaceAll(/'/, "\\'").replaceAll(/"/, "\\\\\"")
-        RECORDED_URL = "${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download"
-
 
         def dockerImage = docker.build("recorder", "docker")
         SKICKA_HOME = "/storage/1/jenkins/skicka"
@@ -32,14 +29,19 @@ pipeline {
         stage('prepare') {
           steps {
             sh "rm -rf output *.m2ts *.ts"
-            script {
-              jsonText = sh(script: "curl -u ${EPGSTATION_USER} --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
-              recorded = readJSON( text: jsonText )
-              DESC = recorded.description
-              if (recorded.extended) {
-                DESC = recorded.description + "\n\n" + recorded.extended
+            withCredentials([usernameColonPassword(credentialsId: 'epgstation', variable: 'EPGSTATION_AUTH')]) {
+              script {
+                DESC = ""
+                jsonText = sh(script: "curl -u ${EPGSTATION_AUTH} --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
+                recorded = readJSON( text: jsonText )
+                if (recorded.description != " ") {
+                  DESC = recorded.description
+                }
+                if (recorded.extended != " ") {
+                  DESC = recorded.description + "\n\n" + recorded.extended
+                }
+                sh "curl -u ${EPGSTATION_AUTH} --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download'"
               }
-              sh "curl -u ${EPGSTATION_USER} --output ${SOURCE_FILENAME} '${RECORDED_URL}'"
             }
           }
         }
@@ -115,7 +117,7 @@ pipeline {
         }
         stage('Cleanup') {
           steps {
-            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
+            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}\nRECORDED_ID: ${RECORDED_ID}\nSLACK_TIMESTAMP: ${SLACK_TIMESTAMP}"
             archiveArtifacts artifacts: 'output/*.txt'
             sh 'rm -rf output *.m2ts *.ts'
           }
