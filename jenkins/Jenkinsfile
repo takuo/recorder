@@ -16,6 +16,7 @@ pipeline {
         TITLE = NAME.replaceAll(/'/, "\\'").replaceAll(/"/, "\\\\\"")
         RECORDED_URL = "${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download"
 
+
         def dockerImage = docker.build("recorder", "docker")
         SKICKA_HOME = "/storage/1/jenkins/skicka"
         WINE_HOME = "/storage/1/jenkins/wine"
@@ -32,30 +33,13 @@ pipeline {
           steps {
             sh "rm -rf output *.m2ts *.ts"
             script {
-              DESC = DESCRIPTION
-              if (EXTENDED) {
-                DESC = DESCRIPTION + "\n\n" + EXTENDED
+              jsonText = sh(script: "curl -u ${EPGSTATION_USER} --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
+              recorded = readJSON( text: jsonText )
+              DESC = recorded.description
+              if (recorded.extended) {
+                DESC = recorded.description + "\n\n" + recorded.extended
               }
-
-              if (RECORDED_URL) {
-                  sh "curl -u ${EPGSTATION_USER} --output ${SOURCE_FILENAME} '${RECORDED_URL}'"
-              } else if (QUEUE_HOST) {
-                withCredentials([sshUserPrivateKey(credentialsId: 'recorder',
-                  keyFileVariable: 'identity',
-                  passphraseVariable: 'passphrase',
-                  usernameVariable: 'user')]) {
-                  def remote = [:]
-                  remote.name = QUEUE_HOST
-                  remote.host = remote.name
-                  remote.user = user
-                  remote.allowAnyHosts = true
-                  remote.identityFile = identity
-                  remote.passphrase = passphrase
-                  sshGet remote: remote, from: FILEPATH, into: SOURCE_FILENAME, override: true
-                }
-              } else {
-                sh "cp \"${env.FILEPATH}\" '${SOURCE_FILENAME}'" 
-              }
+              sh "curl -u ${EPGSTATION_USER} --output ${SOURCE_FILENAME} '${RECORDED_URL}'"
             }
           }
         }
@@ -131,7 +115,7 @@ pipeline {
         }
         stage('Cleanup') {
           steps {
-            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nDESCRIPTION: ${env.DESCRIPTION}\nEXTENDED: ${EXTENDED}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
+            writeFile file: "output/variable.txt", text: "NAME: ${env.NAME}\nSTARTAT: ${env.STARTAT}\nCHANNEL: ${env.CHANNEL}\nUPLOAD_FILENAME: ${env.UPLOAD_FILENAME}"
             archiveArtifacts artifacts: 'output/*.txt'
             sh 'rm -rf output *.m2ts *.ts'
           }
