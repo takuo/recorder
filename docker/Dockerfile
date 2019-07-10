@@ -26,6 +26,11 @@ RUN git clone https://github.com/ultravideo/kvazaar
 RUN cd kvazaar && ./autogen.sh && ./configure --disable-shared && make && make install
 
 RUN git clone https://github.com/FFmpeg/FFmpeg.git 
+RUN git config --global user.email "kitame@gmail.com"
+RUN git config --global user.name "Takuo Kitame"
+RUN cd FFmpeg && git remote add nekopanda https://github.com/nekopanda/FFmpeg && \
+	git fetch --all && \
+	git merge nekopanda/issue-field-pic
 RUN cd FFmpeg && ./configure \
         --pkg-config-flags="--static" \
         --disable-debug \
@@ -76,9 +81,10 @@ RUN cd $GOPATH/src/github.com/google/skicka && go get .
 
 
 ## TsSplitter.exe
+RUN echo "wine"
 RUN apt-get update && apt-get install -y wget gnupg software-properties-common
-RUN wget -nc https://dl.winehq.org/wine-builds/Release.key
-RUN apt-key add Release.key && rm Release.key
+RUN wget -nc https://dl.winehq.org/wine-builds/winehq.key
+RUN apt-key add winehq.key && rm winehq.key
 RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main'
 
 RUN dpkg --add-architecture i386
