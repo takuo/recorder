@@ -51,11 +51,15 @@ pipeline {
             script {
               docker.image('recorder').inside("-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
                 sh "mkdir -p splitout"
-                sh "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME}"
-                file = sh(script: "cd splitout; ls -S1 | head -1", returnStdout: true).trim()
-                echo "use \"splitout/${file}\""
-                sh "rm ${SOURCE_FILENAME}"
-                sh "ln \"splitout/${file}\" ${SOURCE_FILENAME}"
+                result = sh(script: "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME} > /dev/null 2>&1 || echo -n failed", returnStdout: true).trim()
+		if (result != "failed") {
+                  file = sh(script: "cd splitout; ls -S1 | head -1", returnStdout: true).trim()
+                  echo "use \"splitout/${file}\""
+                  sh "rm ${SOURCE_FILENAME}"
+                  sh "ln \"splitout/${file}\" ${SOURCE_FILENAME}"
+                } else {
+                  echo "use original source file"
+                }
                 sh "rm -rf splitout"
               }
             }
