@@ -32,7 +32,7 @@ pipeline {
             withCredentials([usernameColonPassword(credentialsId: 'epgstation', variable: 'EPGSTATION_AUTH')]) {
               script {
                 DESC = ""
-                jsonText = sh(script: "curl -u ${EPGSTATION_AUTH} --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
+                jsonText = sh(script: 'curl -u ${EPGSTATION_AUTH}' + " --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
                 recorded = readJSON( text: jsonText )
                 if (recorded.description != " ") {
                   DESC = recorded.description
@@ -40,7 +40,7 @@ pipeline {
                 if (recorded.extended != " ") {
                   DESC = recorded.description + "\n\n" + recorded.extended
                 }
-                sh "curl -u ${EPGSTATION_AUTH} --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download'"
+                sh('curl -u ${EPGSTATION_AUTH}' + " --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download'")
               }
             }
           }
