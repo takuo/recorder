@@ -75,7 +75,8 @@ pipeline {
                     [$class: 'StringParameterValue', name: 'NAME', value: NAME],
                     [$class: 'StringParameterValue', name: 'SOURCE_FILE', value: "${SKICKA_HOME}/${SOURCE_FILENAME}"],
                     [$class: 'StringParameterValue', name: 'DEST_FILE', value: UPLOAD_FILENAME],
-                    [$class: 'StringParameterValue', name: 'DESCRIPTION', value: DESC]
+                    [$class: 'StringParameterValue', name: 'DESCRIPTION', value: DESC],
+                    [$class: 'NodeParameterValue', name: 'nodes', labels: ["${env.NODE_NAME}"], nodeEligibility: [$class: 'AllNodeEligibility']],
                   ]
               },
               "encode" : {
