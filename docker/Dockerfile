@@ -1,7 +1,10 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 WORKDIR /tmp/workdir
 
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN cat /etc/apt/sources.list | sed -e 's/^# deb-src/deb-src/' | tee -i /etc/apt/sources.list
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
       ca-certificates expat ruby mediainfo \
       ubuntu-restricted-addons 
@@ -14,7 +17,7 @@ RUN apt-get install -y --no-install-recommends git libva-dev \
 RUN apt-get build-dep -y --no-install-recommends ffmpeg
 
 # x265
-RUN hg clone https://bitbucket.org/multicoreware/x265
+RUN git clone https://bitbucket.org/multicoreware/x265_git x265
 RUN cd x265/build/linux && cmake -G "Unix Makefiles" -DENABLE_SHARED:bool=off ../../source && make && make install
 
 # libaom
@@ -26,11 +29,11 @@ RUN git clone https://github.com/ultravideo/kvazaar
 RUN cd kvazaar && ./autogen.sh && ./configure --disable-shared && make && make install
 
 RUN git clone https://github.com/FFmpeg/FFmpeg.git 
-RUN git config --global user.email "kitame@gmail.com"
-RUN git config --global user.name "Takuo Kitame"
-RUN cd FFmpeg && git remote add nekopanda https://github.com/nekopanda/FFmpeg && \
-	git fetch --all && \
-	git merge nekopanda/issue-field-pic
+#RUN git config --global user.email "kitame@gmail.com"
+#RUN git config --global user.name "Takuo Kitame"
+#RUN cd FFmpeg && git remote add nekopanda https://github.com/nekopanda/FFmpeg && \
+#	git fetch --all && \
+#	git merge nekopanda/issue-field-pic
 RUN cd FFmpeg && ./configure \
         --pkg-config-flags="--static" \
         --disable-debug \
@@ -39,7 +42,6 @@ RUN cd FFmpeg && ./configure \
         --enable-vaapi \
         --enable-libvorbis \
         --enable-libvpx \
-        --enable-avresample \
         --enable-libopencore-amrnb \
         --enable-libopencore-amrwb \
         --cpu=native \
@@ -72,12 +74,17 @@ RUN cd FFmpeg && ./configure \
 ## golang
 
 ENV GOPATH /usr/local/go
+ENV GO111MODULE off
 ENV PATH $GOPATH/bin:$PATH
-RUN apt-get install -yqq --no-install-recommends golang
+#RUN apt-get install -yqq --no-install-recommends golang
+RUN apt install -y --no-install-recommends software-properties-common
+RUN apt-add-repository ppa:longsleep/golang-backports
+RUN apt update
+RUN apt install -y --no-install-recommends golang-go
 RUN mkdir $GOPATH
 RUN mkdir -p $GOPATH/src
 RUN git clone https://github.com/takuo/skicka -b add-desc-command $GOPATH/src/github.com/google/skicka
-RUN cd $GOPATH/src/github.com/google/skicka && go get .
+RUN cd $GOPATH/src/github.com/google/skicka && go get -v .
 
 
 ## TsSplitter.exe
@@ -85,7 +92,7 @@ RUN echo "wine"
 RUN apt-get update && apt-get install -y wget gnupg software-properties-common
 RUN wget -nc https://dl.winehq.org/wine-builds/winehq.key
 RUN apt-key add winehq.key && rm winehq.key
-RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main'
+RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
 
 RUN dpkg --add-architecture i386
 RUN apt-get -yqq update && apt-get install -yq --install-recommends \
@@ -107,3 +114,5 @@ RUN \
         apt-get clean -y && \
 	rm -rf /var/lib/apt/lists/*
 RUN locale-gen ja_JP.UTF-8
+RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+RUN echo "Asia/Tokyo" > /etc/timezone

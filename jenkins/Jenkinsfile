@@ -7,7 +7,7 @@ node {
 
 pipeline {
     agent {
-      label 'recorder'
+      label 'recorder-test'
     }
     environment {
         LANG = 'ja_JP.UTF-8'
@@ -49,19 +49,19 @@ pipeline {
           steps {
             sh "mkdir -p ${WINE_HOME}"
             script {
-              docker.image('recorder').inside("-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
-                sh "mkdir -p splitout"
-                result = sh(script: "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME} > /dev/null 2>&1 || echo -n failed", returnStdout: true).trim()
-		if (result != "failed") {
-                  file = sh(script: "cd splitout; ls -S1 | head -1", returnStdout: true).trim()
-                  echo "use \"splitout/${file}\""
-                  sh "rm ${SOURCE_FILENAME}"
-                  sh "ln \"splitout/${file}\" ${SOURCE_FILENAME}"
-                } else {
-                  echo "use original source file"
-                }
-                sh "rm -rf splitout"
+            withDockerContainer(image: 'recorder', args: "-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
+              sh "mkdir -p splitout"
+              result = sh(script: "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME} > /dev/null 2>&1 || echo -n failed", returnStdout: true).trim()
+              if (result != "failed") {
+                file = sh(script: "cd splitout; ls -S1 | head -1", returnStdout: true).trim()
+                echo "use \"splitout/${file}\""
+                sh "rm ${SOURCE_FILENAME}"
+                sh "ln \"splitout/${file}\" ${SOURCE_FILENAME}"
+              } else {
+                echo "use original source file"
               }
+              sh "rm -rf splitout"
+            }
             }
           }
         }
@@ -83,8 +83,20 @@ pipeline {
                 sh "mkdir -p output"
                 script {
                   if (KEEP_SOURCE_FILE == "true") {
-                      def filename = KEEP_DIR + "/" + DEPLOY_FILENAME.replaceAll(/.mp4\z/, '.m2ts')
-                      sh "cp ${SOURCE_FILENAME} \"${filename}\""
+                      withCredentials([sshUserPrivateKey(credentialsId: 'deploy-mp4',
+                        keyFileVariable: 'identity',
+                        passphraseVariable: 'passphrase',
+                        usernameVariable: 'user')]) {
+                        def filename = KEEP_DIR + "/" + DEPLOY_FILENAME.replaceAll(/.mp4\z/, '.m2ts')
+                        def remote = [:]
+                        remote.name = DEPLOY_HOST
+                        remote.host = remote.name
+                        remote.user = user
+                        remote.allowAnyHosts = true
+                        remote.identityFile = identity
+                        remote.passphrase = passphrase
+                        sshPut remote: remote, from: "${SOURCE_FILENAME}", into: filename
+                     }
                   }
                   if (SKIP_ENCODE == "false") {
                     docker.image("recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
@@ -113,7 +125,7 @@ pipeline {
                   remote.identityFile = identity
                   remote.passphrase = passphrase
                   def dst = "${DEPLOY_PATH}/${DEPLOY_FILENAME}"
-                  sshPut remote: remote, from: "output/${BUILD_NUMBER}.mp4", into: dst, override: true
+                  sshPut remote: remote, from: "output/${BUILD_NUMBER}.mp4", into: dst
                   sshCommand remote: remote, command: DEPLOY_EXEC
                 }
               }
