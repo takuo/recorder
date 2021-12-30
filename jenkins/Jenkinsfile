@@ -9,6 +9,13 @@ pipeline {
     agent {
       label 'recorder'
     }
+    options {
+      throttleJobProperty(
+          categories: ['recorder'],
+          throttleEnabled: true,
+          throttleOption: 'category'
+      )
+    }
     environment {
         LANG = 'ja_JP.UTF-8'
         TZ = 'Asia/Tokyo'
