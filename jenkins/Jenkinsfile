@@ -47,7 +47,7 @@ pipeline {
                 if (recorded.extended != " ") {
                   DESC = recorded.description + "\n\n" + recorded.extended
                 }
-                sh('curl -u ${EPGSTATION_AUTH}' + " --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/recorded/${RECORDED_ID}/file?mode=download'")
+		sh('curl -u ${EPGSTATION_AUTH}' + " --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/videos/${RECORDED_ID}?isDownload=true' -H 'accept: video/mp2t'")
               }
             }
           }
