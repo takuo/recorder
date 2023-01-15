@@ -39,7 +39,7 @@ pipeline {
             withCredentials([usernameColonPassword(credentialsId: 'epgstation', variable: 'EPGSTATION_AUTH')]) {
               script {
                 DESC = ""
-                jsonText = sh(script: 'curl -u ${EPGSTATION_AUTH}' + " --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}'", returnStdout: true).trim()
+                jsonText = sh(script: 'curl -u ${EPGSTATION_AUTH}' + " --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}?isHalfWidth=false'", returnStdout: true).trim()
                 recorded = readJSON( text: jsonText )
                 if (recorded.description != " ") {
                   DESC = recorded.description
