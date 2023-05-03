@@ -21,7 +21,7 @@ pipeline {
         TZ = 'Asia/Tokyo'
         TITLE = NAME.replaceAll(/'/, "\\'").replaceAll(/"/, "\\\\\"")
 
-        def dockerImage = docker.build("recorder", "docker")
+        //def dockerImage = docker.build("recorder", "docker")
         SKICKA_HOME = "/storage/1/jenkins/skicka"
         WINE_HOME = "/storage/1/jenkins/wine"
         UPLOAD_FILENAME = sh (
