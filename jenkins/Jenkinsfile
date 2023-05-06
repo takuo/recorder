@@ -36,27 +36,25 @@ pipeline {
         stage('prepare') {
           steps {
             sh "rm -rf output *.m2ts *.ts"
-            withCredentials([usernameColonPassword(credentialsId: 'epgstation', variable: 'EPGSTATION_AUTH')]) {
-              script {
-                DESC = ""
-                jsonText = sh(script: 'curl -u ${EPGSTATION_AUTH}' + " --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}?isHalfWidth=false'", returnStdout: true).trim()
-                recorded = readJSON( text: jsonText )
-                if (recorded.description != " ") {
-                  DESC = recorded.description
-                }
-                if (recorded.extended != " ") {
-                  DESC = recorded.description + "\n\n" + recorded.extended
-                }
-		sh('curl -u ${EPGSTATION_AUTH}' + " --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/videos/${RECORDED_ID}?isDownload=true' -H 'accept: video/mp2t'")
+            script {
+              DESC = ""
+              jsonText = sh(script: "curl --output - '${EPGSTATION_URL}api/recorded/${RECORDED_ID}?isHalfWidth=false'", returnStdout: true).trim()
+              recorded = readJSON( text: jsonText )
+              if (recorded.description != " ") {
+                DESC = recorded.description
               }
-            }
+              if (recorded.extended != " ") {
+                DESC = recorded.description + "\n\n" + recorded.extended
+              }
+               sh("curl --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/videos/${RECORDED_ID}?isDownload=true' -H 'accept: video/mp2t'")
+              }
           }
         }
         stage('TSSplitter') {
           steps {
             sh "mkdir -p ${WINE_HOME}"
             script {
-              docker.image('recorder').inside("-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
+              docker.image('ghcr.io/takuo/recorder').inside("-e HOME=${env.WINE_HOME} -e LANG=ja_JP.UTF-8") {
                 sh "mkdir -p splitout"
                 result = sh(script: "wine /usr/local/bin/TsSplitter.exe -SD -1SEG -SEP -EIT -OUT splitout/ ${env.SOURCE_FILENAME} > /dev/null 2>&1 || echo -n failed", returnStdout: true).trim()
                 if (result != "failed") {
@@ -106,7 +104,7 @@ pipeline {
                      }
                   }
                   if (SKIP_ENCODE == "false") {
-                    docker.image("recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
+                    docker.image("ghcr.io/takuo/recorder").inside("--group-add video --device /dev/dri:/dev/dri -e LANG=ja_JP.UTF-8") {
                       sh "/usr/local/bin/tsenc ${SOURCE_FILENAME} output/${env.BUILD_NUMBER}.mp4"
                       sh "mediainfo output/${BUILD_NUMBER}.mp4 > output/mediainfo.txt"
                     }
