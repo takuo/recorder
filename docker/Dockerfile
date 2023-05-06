@@ -1,6 +1,10 @@
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS base
 
 WORKDIR /tmp/workdir
+
+ENV GOPATH /opt/go
+ENV GO111MODULE off
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -9,12 +13,13 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
       ca-certificates expat ruby mediainfo \
       ubuntu-restricted-addons 
  
-# FROM base AS build
 
 RUN apt-get install -y --no-install-recommends git libva-dev \
-    autoconf automake build-essential libass-dev libtool pkg-config texinfo zlib1g-dev libva-dev cmake mercurial libdrm-dev libvorbis-dev libogg-dev git libx11-dev libperl-dev libpciaccess-dev libpciaccess0 xorg-dev libfdk-aac-dev libx264-dev libx265-dev libopus-dev libssl-dev
+    autoconf automake build-essential libass-dev libtool pkg-config texinfo zlib1g-dev libva-dev cmake mercurial libdrm-dev libvorbis-dev libogg-dev git libx11-dev libperl-dev libpciaccess-dev libpciaccess0 xorg-dev libfdk-aac-dev libx264-dev libx265-dev libopus-dev libssl-dev curl
 
 RUN apt-get build-dep -y --no-install-recommends ffmpeg
+
+FROM base AS build
 
 # x265
 RUN git clone https://bitbucket.org/multicoreware/x265_git x265
@@ -34,8 +39,13 @@ RUN git clone https://github.com/FFmpeg/FFmpeg.git
 #RUN cd FFmpeg && git remote add nekopanda https://github.com/nekopanda/FFmpeg && \
 #	git fetch --all && \
 #	git merge nekopanda/issue-field-pic
+
 RUN cd FFmpeg && ./configure \
         --pkg-config-flags="--static" \
+        --disable-shared \
+        --enable-static \
+        --extra-cflags=--static \
+        --extra-libs='-lpthread -ldl -lstdc++' \
         --disable-debug \
         --disable-doc \
         --disable-ffplay \
@@ -66,48 +76,36 @@ RUN cd FFmpeg && ./configure \
         --enable-postproc \
         --enable-small \
         --enable-version3 \
-        --extra-libs=-lpthread \
-        --extra-libs=-ldl \
         --prefix=/usr/local && \
         make && make install && make distclean
 
-## golang
-
-ENV GOPATH /usr/local/go
-ENV GO111MODULE off
-ENV PATH $GOPATH/bin:$PATH
-#RUN apt-get install -yqq --no-install-recommends golang
-RUN apt install -y --no-install-recommends software-properties-common
-RUN apt-add-repository ppa:longsleep/golang-backports
-RUN apt update
-RUN apt install -y --no-install-recommends golang-go
-RUN mkdir $GOPATH
 RUN mkdir -p $GOPATH/src
+RUN curl -sL https://go.dev/dl/go1.20.4.linux-amd64.tar.gz | tar -C /usr/local/ -xz
+
 RUN git clone https://github.com/takuo/skicka -b add-desc-command $GOPATH/src/github.com/google/skicka
 RUN cd $GOPATH/src/github.com/google/skicka && go get -v .
 
+## golang
+FROM base AS release
 
 ## TsSplitter.exe
-RUN echo "wine"
 RUN apt-get update && apt-get install -y wget gnupg software-properties-common
 RUN wget -nc https://dl.winehq.org/wine-builds/winehq.key
 RUN apt-key add winehq.key && rm winehq.key
 RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
 
 RUN dpkg --add-architecture i386
-RUN apt-get -yqq update && apt-get install -yq --install-recommends \
-       wine-stable
+RUN apt-get -yqq update && apt-get install -yq --install-recommends wine-stable
 ENV PATH /opt/wine-stable/bin:$PATH
-RUN winecfg
 
-COPY TsSplitter.exe /usr/local/bin/
-
-# FROM base AS release
 MAINTAINER takuo kitame@gmail.com
 
-# COPY --from=build /usr/local /usr/local/
-COPY tsenc /usr/local/bin/
-COPY ts2avc.hb /usr/local/bin/
+COPY --from=build /usr/local/bin/* /usr/local/bin/
+COPY --from=build /opt/go/bin/* /usr/local/bin/
+COPY TsSplitter.exe tsenc ts2avc.hb /usr/local/bin/
+
+RUN apt-get remove -y --purge '*-dev' gcc g++ cpp autoconf cmake doxygen pkg-config m4 make mercurial opencl-c-headers
+
 RUN \
 	apt-get update -y && \
 	apt-get install -y --no-install-recommends libva-drm2 libva2 i965-va-driver vainfo handbrake-cli locales && \
@@ -116,3 +114,9 @@ RUN \
 RUN locale-gen ja_JP.UTF-8
 RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 RUN echo "Asia/Tokyo" > /etc/timezone
+
+WORKDIR /var/tmp
+
+RUN rm -rf /tmp/workdir
+#RUN winecfg
+
