@@ -46,7 +46,15 @@ pipeline {
               if (recorded.extended != " ") {
                 DESC = recorded.description + "\n\n" + recorded.extended
               }
-               sh("curl --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/videos/${RECORDED_ID}?isDownload=true' -H 'accept: video/mp2t'")
+
+              id = "0"
+              for (int i = 0; i < recorded.videoFiles.size(); i++) {
+                if (recorded.videoFiles[i].type == "ts") {
+                  id = recorded.videoFiles[i].id
+                  break
+                }
+              }
+              sh("curl --output ${SOURCE_FILENAME} '${EPGSTATION_URL}api/videos/${id}?isDownload=true' -H 'accept: video/mp2t'")
               }
           }
         }
